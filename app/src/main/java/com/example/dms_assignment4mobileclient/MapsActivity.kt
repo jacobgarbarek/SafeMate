@@ -11,17 +11,21 @@ import androidx.core.app.ActivityCompat
 import androidx.core.app.ActivityCompat.OnRequestPermissionsResultCallback
 import androidx.core.content.ContextCompat
 import com.example.dms_assignment4mobileclient.databinding.ActivityMapsBinding
+import com.google.android.gms.location.FusedLocationProviderClient
+import com.google.android.gms.location.LocationServices
+import com.google.android.gms.maps.CameraUpdateFactory
 import com.google.android.gms.maps.GoogleMap
 import com.google.android.gms.maps.GoogleMap.OnMyLocationButtonClickListener
 import com.google.android.gms.maps.GoogleMap.OnMyLocationClickListener
 import com.google.android.gms.maps.OnMapReadyCallback
 import com.google.android.gms.maps.SupportMapFragment
+import com.google.android.gms.maps.model.LatLng
 import com.google.android.gms.maps.model.LatLngBounds
 
 class MapsActivity : AppCompatActivity(), OnMyLocationButtonClickListener,
     OnMyLocationClickListener, OnMapReadyCallback, OnRequestPermissionsResultCallback {
 
-    //private lateinit var fusedLocationClient: FusedLocationProviderClient
+    private lateinit var fusedLocationClient: FusedLocationProviderClient
     private lateinit var mMap: GoogleMap
     private lateinit var binding: ActivityMapsBinding
     private var permissionDenied = false
@@ -36,6 +40,8 @@ class MapsActivity : AppCompatActivity(), OnMyLocationButtonClickListener,
         val mapFragment = supportFragmentManager
             .findFragmentById(R.id.map) as SupportMapFragment
         mapFragment.getMapAsync(this)
+
+        fusedLocationClient = LocationServices.getFusedLocationProviderClient(this)
     }
 
     /**
@@ -52,9 +58,6 @@ class MapsActivity : AppCompatActivity(), OnMyLocationButtonClickListener,
         googleMap.setOnMyLocationButtonClickListener(this)
         googleMap.setOnMyLocationClickListener(this)
         enableMyLocation()
-        googleMap.setOnMapLoadedCallback {
-            val bounds = LatLngBounds.builder()
-        }
     }
 
     private fun enableMyLocation() {
@@ -62,6 +65,12 @@ class MapsActivity : AppCompatActivity(), OnMyLocationButtonClickListener,
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION)
             == PackageManager.PERMISSION_GRANTED) {
             mMap.isMyLocationEnabled = true
+
+            fusedLocationClient.lastLocation                                            //positions camera to current location of user
+                .addOnSuccessListener { location : Location? ->
+                    val latLng = location?.let { LatLng(it.latitude,it.longitude) }
+                    mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(latLng, 15f))
+                }
         } else {
             // Permission to access the location is missing. Show rationale and request permission
             requestPermission(
