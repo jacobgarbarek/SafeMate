@@ -5,14 +5,15 @@ import android.app.AlertDialog
 import android.content.pm.PackageManager
 import android.location.Location
 import android.os.Bundle
+import android.os.Looper
+import android.util.Log
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.app.ActivityCompat.OnRequestPermissionsResultCallback
 import androidx.core.content.ContextCompat
 import com.example.dms_assignment4mobileclient.databinding.ActivityMapsBinding
-import com.google.android.gms.location.FusedLocationProviderClient
-import com.google.android.gms.location.LocationServices
+import com.google.android.gms.location.*
 import com.google.android.gms.maps.CameraUpdateFactory
 import com.google.android.gms.maps.GoogleMap
 import com.google.android.gms.maps.GoogleMap.OnMyLocationButtonClickListener
@@ -20,7 +21,7 @@ import com.google.android.gms.maps.GoogleMap.OnMyLocationClickListener
 import com.google.android.gms.maps.OnMapReadyCallback
 import com.google.android.gms.maps.SupportMapFragment
 import com.google.android.gms.maps.model.LatLng
-import com.google.android.gms.maps.model.LatLngBounds
+import com.google.android.gms.tasks.Task
 
 class MapsActivity : AppCompatActivity(), OnMyLocationButtonClickListener,
     OnMyLocationClickListener, OnMapReadyCallback, OnRequestPermissionsResultCallback {
@@ -28,7 +29,11 @@ class MapsActivity : AppCompatActivity(), OnMyLocationButtonClickListener,
     private lateinit var fusedLocationClient: FusedLocationProviderClient
     private lateinit var mMap: GoogleMap
     private lateinit var binding: ActivityMapsBinding
+    private lateinit var locationRequest: LocationRequest
     private var permissionDenied = false
+    private lateinit var userLatLng: LatLng
+    private var locationCallback = LocationCallBackHandler()
+
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -42,7 +47,17 @@ class MapsActivity : AppCompatActivity(), OnMyLocationButtonClickListener,
         mapFragment.getMapAsync(this)
 
         fusedLocationClient = LocationServices.getFusedLocationProviderClient(this)
+        locationRequest = LocationRequest.create().apply {
+            interval = 100
+            fastestInterval = 50
+            priority = LocationRequest.PRIORITY_HIGH_ACCURACY
+            maxWaitTime= 100
+        }
+//        val builder = LocationSettingsRequest.Builder().addLocationRequest(locationRequest)
+//        val client: SettingsClient = LocationServices.getSettingsClient(this)
+//        val task: Task<LocationSettingsResponse> = client.checkLocationSettings(builder.build())
     }
+
 
     /**
      * Manipulates the map once available.
@@ -71,6 +86,8 @@ class MapsActivity : AppCompatActivity(), OnMyLocationButtonClickListener,
                     val latLng = location?.let { LatLng(it.latitude,it.longitude) }
                     mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(latLng, 15f))
                 }
+
+            fusedLocationClient.requestLocationUpdates(locationRequest, locationCallback, Looper.getMainLooper())
         } else {
             // Permission to access the location is missing. Show rationale and request permission
             requestPermission(
@@ -79,6 +96,7 @@ class MapsActivity : AppCompatActivity(), OnMyLocationButtonClickListener,
             )
         }
     }
+
 
     private fun requestPermission(activity: MapsActivity, requestId: Int, permission: String) {
         if (ActivityCompat.shouldShowRequestPermissionRationale(activity, permission)) {
@@ -160,6 +178,24 @@ class MapsActivity : AppCompatActivity(), OnMyLocationButtonClickListener,
                 }
                 .create()
                 .show()
+        }
+    }
+
+    inner class LocationCallBackHandler : LocationCallback() {
+        override fun onLocationResult(location: LocationResult) {
+            super.onLocationResult(location)
+            if(location == null){
+                Log.println(Log.ERROR, "LOCATION", "Null location result")
+                return
+            }
+            val mostRecentLocation = location.lastLocation
+            if(mMap != null){
+                userLatLng = LatLng(mostRecentLocation.latitude, mostRecentLocation.longitude)
+                Log.println(Log.INFO, "LOCATION", "User at $userLatLng")
+                Toast.makeText(applicationContext, "User at $userLatLng", Toast.LENGTH_SHORT).show()
+            } else {
+                Log.println(Log.ERROR, "LOCATION", "Receiving locations but maps not yet available")
+            }
         }
     }
 
