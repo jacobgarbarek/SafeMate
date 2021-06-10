@@ -7,6 +7,7 @@ import android.location.Location
 import android.os.Bundle
 import android.os.Looper
 import android.util.Log
+import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
@@ -33,6 +34,7 @@ class MapsActivity : AppCompatActivity(), OnMyLocationButtonClickListener,
     private var permissionDenied = false
     private lateinit var userLatLng: LatLng
     private var locationCallback = LocationCallBackHandler()
+    private lateinit var userName: String
 
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -53,6 +55,10 @@ class MapsActivity : AppCompatActivity(), OnMyLocationButtonClickListener,
             priority = LocationRequest.PRIORITY_HIGH_ACCURACY
             maxWaitTime= 100
         }
+
+        val intent = intent
+        userName = intent.getStringExtra("username").toString()
+        Toast.makeText(applicationContext, "Welcome $userName", Toast.LENGTH_SHORT).show()
 //        val builder = LocationSettingsRequest.Builder().addLocationRequest(locationRequest)
 //        val client: SettingsClient = LocationServices.getSettingsClient(this)
 //        val task: Task<LocationSettingsResponse> = client.checkLocationSettings(builder.build())
@@ -192,7 +198,7 @@ class MapsActivity : AppCompatActivity(), OnMyLocationButtonClickListener,
             if(mMap != null){
                 userLatLng = LatLng(mostRecentLocation.latitude, mostRecentLocation.longitude)
                 Log.println(Log.INFO, "LOCATION", "User at $userLatLng")
-                Toast.makeText(applicationContext, "User at $userLatLng", Toast.LENGTH_SHORT).show()
+                //Toast.makeText(applicationContext, "User at $userLatLng", Toast.LENGTH_SHORT).show()
 
                 //PUSH TO SERVER CALLING RESTAPI
                 //GET FROM SERVER CALLING RESTAPI
