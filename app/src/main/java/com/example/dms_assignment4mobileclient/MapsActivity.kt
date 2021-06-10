@@ -193,6 +193,9 @@ class MapsActivity : AppCompatActivity(), OnMyLocationButtonClickListener,
                 userLatLng = LatLng(mostRecentLocation.latitude, mostRecentLocation.longitude)
                 Log.println(Log.INFO, "LOCATION", "User at $userLatLng")
                 Toast.makeText(applicationContext, "User at $userLatLng", Toast.LENGTH_SHORT).show()
+
+                //PUSH TO SERVER CALLING RESTAPI
+                //GET FROM SERVER CALLING RESTAPI
             } else {
                 Log.println(Log.ERROR, "LOCATION", "Receiving locations but maps not yet available")
             }
