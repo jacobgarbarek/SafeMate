@@ -13,6 +13,7 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.app.ActivityCompat.OnRequestPermissionsResultCallback
 import androidx.core.content.ContextCompat
+import androidx.lifecycle.lifecycleScope
 import com.example.dms_assignment4mobileclient.databinding.ActivityMapsBinding
 import com.google.android.gms.location.*
 import com.google.android.gms.maps.CameraUpdateFactory
@@ -23,6 +24,12 @@ import com.google.android.gms.maps.OnMapReadyCallback
 import com.google.android.gms.maps.SupportMapFragment
 import com.google.android.gms.maps.model.LatLng
 import com.google.android.gms.tasks.Task
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import java.io.IOException
+import java.net.HttpURLConnection
+import java.net.MalformedURLException
+import java.net.URL
 
 class MapsActivity : AppCompatActivity(), OnMyLocationButtonClickListener,
     OnMyLocationClickListener, OnMapReadyCallback, OnRequestPermissionsResultCallback {
@@ -200,7 +207,34 @@ class MapsActivity : AppCompatActivity(), OnMyLocationButtonClickListener,
                 Log.println(Log.INFO, "LOCATION", "User at $userLatLng")
                 //Toast.makeText(applicationContext, "User at $userLatLng", Toast.LENGTH_SHORT).show()
 
-                //PUSH TO SERVER CALLING RESTAPI
+                lifecycleScope.launch(Dispatchers.IO){
+                    try{
+                        val productUrl = URL("http://${resources.getString(R.string.ip_address)}" +
+                                "/DMS_Assignment4/locationservice/location/$userName/${userLatLng.latitude}/${userLatLng.longitude}")    //url of rest service
+
+                        (productUrl.openConnection() as HttpURLConnection).run {
+                            readTimeout = 3000 // 3000ms
+                            connectTimeout = 3000 // 3000ms
+                            requestMethod = "PUT"
+                            setRequestProperty("Content-Type", "text/plain")
+
+                            if(responseCode == HttpURLConnection.HTTP_NO_CONTENT) {
+                                Log.println(Log.INFO, "REST", "SUCCESS UPDATE LOCATION")
+                            }else {
+                                Log.println(Log.INFO, "REST", "FAIL UPDATE LOCATION")
+                            }
+                        }
+                    }catch (e: MalformedURLException)
+                    {
+                        Log.e("REST", "Malformed URL: $e")
+                        e.printStackTrace()
+                    }
+                    catch (e: IOException)
+                    {
+                        Log.e("REST", "IOException: $e")
+                        e.printStackTrace()
+                    }
+                }
                 //GET FROM SERVER CALLING RESTAPI
             } else {
                 Log.println(Log.ERROR, "LOCATION", "Receiving locations but maps not yet available")
