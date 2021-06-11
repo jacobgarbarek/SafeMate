@@ -24,9 +24,13 @@ import com.google.android.gms.maps.OnMapReadyCallback
 import com.google.android.gms.maps.SupportMapFragment
 import com.google.android.gms.maps.model.LatLng
 import com.google.android.gms.tasks.Task
+import com.google.gson.Gson
+import com.google.gson.reflect.TypeToken
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import java.io.BufferedReader
 import java.io.IOException
+import java.io.InputStreamReader
 import java.net.HttpURLConnection
 import java.net.MalformedURLException
 import java.net.URL
@@ -34,6 +38,7 @@ import java.net.URL
 class MapsActivity : AppCompatActivity(), OnMyLocationButtonClickListener,
     OnMyLocationClickListener, OnMapReadyCallback, OnRequestPermissionsResultCallback {
 
+    private var liveLocations = ArrayList<com.example.dms_assignment4mobileclient.Location>()
     private lateinit var fusedLocationClient: FusedLocationProviderClient
     private lateinit var mMap: GoogleMap
     private lateinit var binding: ActivityMapsBinding
@@ -235,7 +240,39 @@ class MapsActivity : AppCompatActivity(), OnMyLocationButtonClickListener,
                         e.printStackTrace()
                     }
                 }
-                //GET FROM SERVER CALLING RESTAPI
+
+                lifecycleScope.launch(Dispatchers.IO){
+                    try{
+                        val productUrl = URL("http://${resources.getString(R.string.ip_address)}" +
+                                "/DMS_Assignment4/locationservice/location")    //url of rest service
+
+                        (productUrl.openConnection() as HttpURLConnection).run {
+                            readTimeout = 3000 // 3000ms
+                            connectTimeout = 3000 // 3000ms
+                            requestMethod = "GET"
+
+                            if(responseCode == HttpURLConnection.HTTP_OK){
+                                val br = BufferedReader(InputStreamReader(inputStream))
+                                val gson = Gson()
+                                val locationType = object : TypeToken<ArrayList<com.example.dms_assignment4mobileclient.Location>>() {}.type
+                                val locations = gson.fromJson<ArrayList<com.example.dms_assignment4mobileclient.Location>>(br, locationType)
+                                liveLocations = locations;
+                                br.close()
+                                Log.println(Log.INFO, "REST", "SUCCESS GET ALL LOCATIONS ${liveLocations.toString()}")
+                            }else
+                                Log.println(Log.INFO, "REST", "FAIL ALL LOCATIONS")
+                        }
+                    }catch (e: MalformedURLException)
+                    {
+                        Log.e("REST", "Malformed URL: $e")
+                        e.printStackTrace()
+                    }
+                    catch (e: IOException)
+                    {
+                        Log.e("REST", "IOException: $e")
+                        e.printStackTrace()
+                    }
+                }
             } else {
                 Log.println(Log.ERROR, "LOCATION", "Receiving locations but maps not yet available")
             }
