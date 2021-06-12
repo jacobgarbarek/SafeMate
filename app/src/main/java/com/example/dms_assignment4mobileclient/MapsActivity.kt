@@ -107,7 +107,7 @@ class MapsActivity : AppCompatActivity(), OnMyLocationButtonClickListener,
             fusedLocationClient.lastLocation                                            //positions camera to current location of user
                 .addOnSuccessListener { location : Location? ->
                     val latLng = location?.let { LatLng(it.latitude,it.longitude) }
-                    mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(latLng, 15f))
+                    mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(latLng, 14.9f))
                 }
 
             fusedLocationClient.requestLocationUpdates(locationRequest, locationCallback, Looper.getMainLooper())
@@ -300,8 +300,8 @@ class MapsActivity : AppCompatActivity(), OnMyLocationButtonClickListener,
 
     private fun generateBitmapDescriptorFromRes(context: Context, resId: Int): BitmapDescriptor {
         val drawable = ContextCompat.getDrawable(context, resId)
-        drawable?.setBounds(0,0,drawable.intrinsicWidth, drawable.intrinsicHeight)
-        val bitmap = drawable?.let { Bitmap.createBitmap(it.intrinsicWidth,drawable.intrinsicHeight,Bitmap.Config.ARGB_8888) }
+        drawable?.setBounds(0,0,drawable.intrinsicWidth*2, drawable.intrinsicHeight*2)
+        val bitmap = drawable?.let { Bitmap.createBitmap(it.intrinsicWidth*2,drawable.intrinsicHeight*2,Bitmap.Config.ARGB_8888) }
         val canvas = bitmap?.let { Canvas(it) }
         if (canvas != null) {
             drawable?.draw(canvas)
