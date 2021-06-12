@@ -3,6 +3,7 @@ package com.example.dms_assignment4mobileclient
 import android.Manifest
 import android.app.AlertDialog
 import android.content.Context
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.graphics.Canvas
@@ -10,6 +11,8 @@ import android.location.Location
 import android.os.Bundle
 import android.os.Looper
 import android.util.Log
+import android.view.View
+import android.widget.Button
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
@@ -28,6 +31,7 @@ import com.google.android.gms.maps.model.BitmapDescriptor
 import com.google.android.gms.maps.model.BitmapDescriptorFactory
 import com.google.android.gms.maps.model.LatLng
 import com.google.android.gms.maps.model.MarkerOptions
+import com.google.android.material.snackbar.Snackbar
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
 import kotlinx.coroutines.Dispatchers
@@ -52,6 +56,12 @@ class MapsActivity : AppCompatActivity(), OnMyLocationButtonClickListener,
     private lateinit var userLatLng: LatLng
     private var locationCallback = LocationCallBackHandler()
     private lateinit var userName: String
+    private lateinit var safeButton : Button
+    private lateinit var helpButton : Button
+    private var safeFlags = HashMap<String, Boolean>()
+    private var helpFlags = HashMap<String, Boolean>()
+    private var safe = true
+    private var help = false
 
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -75,10 +85,35 @@ class MapsActivity : AppCompatActivity(), OnMyLocationButtonClickListener,
 
         val intent = intent
         userName = intent.getStringExtra("username").toString()
-        Toast.makeText(applicationContext, "Welcome $userName", Toast.LENGTH_SHORT).show()
-//        val builder = LocationSettingsRequest.Builder().addLocationRequest(locationRequest)
-//        val client: SettingsClient = LocationServices.getSettingsClient(this)
-//        val task: Task<LocationSettingsResponse> = client.checkLocationSettings(builder.build())
+
+        Snackbar.make(findViewById(R.id.maps_view), "Welcome back $userName!", Snackbar.LENGTH_LONG).show()
+
+        safeButton = findViewById(R.id.safe_button)
+        helpButton = findViewById(R.id.help_button)
+
+        safeButton.setOnClickListener {
+            if(safe)
+                Snackbar.make(findViewById(R.id.maps_view), "Message has already been sent.", Snackbar.LENGTH_SHORT).show()
+            else{
+                safe = true
+                if(help)
+                    help = false
+                updateLocations()
+                Snackbar.make(findViewById(R.id.maps_view), "Message sent.", Snackbar.LENGTH_SHORT).show()
+            }
+        }
+
+        helpButton.setOnClickListener {
+            if(help)
+                Snackbar.make(findViewById(R.id.maps_view), "Message has already been sent.", Snackbar.LENGTH_SHORT).show()
+            else{
+                help = true
+                if(safe)
+                    safe = false
+                updateLocations()
+                Snackbar.make(findViewById(R.id.maps_view), "Message sent.", Snackbar.LENGTH_SHORT).show()
+            }
+        }
     }
 
 
@@ -215,69 +250,9 @@ class MapsActivity : AppCompatActivity(), OnMyLocationButtonClickListener,
             if(mMap != null){
                 userLatLng = LatLng(mostRecentLocation.latitude, mostRecentLocation.longitude)
                 Log.println(Log.INFO, "LOCATION", "User at $userLatLng")
-                //Toast.makeText(applicationContext, "User at $userLatLng", Toast.LENGTH_SHORT).show()
 
-                lifecycleScope.launch(Dispatchers.IO){
-                    try{
-                        val productUrl = URL("http://${resources.getString(R.string.ip_address)}" +
-                                "/DMS_Assignment4/locationservice/location/$userName/${userLatLng.latitude}/${userLatLng.longitude}")    //url of rest service
-
-                        (productUrl.openConnection() as HttpURLConnection).run {
-                            readTimeout = 3000 // 3000ms
-                            connectTimeout = 3000 // 3000ms
-                            requestMethod = "PUT"
-                            setRequestProperty("Content-Type", "text/plain")
-
-                            if(responseCode == HttpURLConnection.HTTP_NO_CONTENT) {
-                                Log.println(Log.INFO, "REST", "SUCCESS UPDATE LOCATION: $userName (${userLatLng.latitude}) (${userLatLng.longitude}")
-                            }else {
-                                Log.println(Log.INFO, "REST", "FAIL UPDATE LOCATION")
-                            }
-                        }
-                    }catch (e: MalformedURLException)
-                    {
-                        Log.e("REST", "Malformed URL: $e")
-                        e.printStackTrace()
-                    }
-                    catch (e: IOException)
-                    {
-                        Log.e("REST", "IOException: $e")
-                        e.printStackTrace()
-                    }
-                }
-
-                lifecycleScope.launch(Dispatchers.IO){
-                    try{
-                        val productUrl = URL("http://${resources.getString(R.string.ip_address)}" +
-                                "/DMS_Assignment4/locationservice/location")    //url of rest service
-
-                        (productUrl.openConnection() as HttpURLConnection).run {
-                            readTimeout = 3000 // 3000ms
-                            connectTimeout = 3000 // 3000ms
-                            requestMethod = "GET"
-
-                            if(responseCode == HttpURLConnection.HTTP_OK){
-                                val br = BufferedReader(InputStreamReader(inputStream))
-                                val gson = Gson()
-                                val locationType = object : TypeToken<ArrayList<com.example.dms_assignment4mobileclient.Location>>() {}.type
-                                val locations = gson.fromJson<ArrayList<com.example.dms_assignment4mobileclient.Location>>(br, locationType)
-                                liveLocations = locations;
-                                br.close()
-                                Log.println(Log.INFO, "REST", "SUCCESS GET ALL LOCATIONS ${liveLocations.toString()}")
-                            }else
-                                Log.println(Log.INFO, "REST", "FAIL ALL LOCATIONS")
-                        }
-                    }catch (e: MalformedURLException)
-                    {
-                        Log.e("REST", "Malformed URL: $e")
-                        e.printStackTrace()
-                    }
-                    catch (e: IOException)
-                    {
-                        Log.e("REST", "IOException: $e")
-                        e.printStackTrace()
-                    }
-                }
+                updateLocations()
+                getLocations()
             } else {
                 Log.println(Log.ERROR, "LOCATION", "Receiving locations but maps not yet available")
             }
@@ -293,7 +268,103 @@ class MapsActivity : AppCompatActivity(), OnMyLocationButtonClickListener,
                             .title(location.username)
                             .icon(generateBitmapDescriptorFromRes(applicationContext, R.drawable.ic_baseline_person_pin_24))
                     )
+
+                    if(safeFlags.containsKey(location.username)){
+                        if(location.safe && safeFlags[location.username] == false){
+                            Snackbar.make(findViewById(R.id.maps_view), "$userName is safe!", Snackbar.LENGTH_INDEFINITE).setAction("Dismiss"){}.show()
+                            safeFlags[location.username] = true
+
+                            if(helpFlags[location.username] == true)
+                                helpFlags[location.username] = false
+                        }else if(location.help && helpFlags[location.username] == false){
+                            Snackbar.make(findViewById(R.id.maps_view), "$userName needs help!", Snackbar.LENGTH_INDEFINITE).setAction("Dismiss"){}.show()
+                            helpFlags[location.username] = true
+
+                            if(safeFlags[location.username] == true)
+                                safeFlags[location.username] = false
+                        }
+                    }else{
+                        safeFlags[location.username] = location.safe
+                        helpFlags[location.username] = location.help
+                    }
                 }
+            }
+        }
+    }
+
+    private fun getLocations() {
+        lifecycleScope.launch(Dispatchers.IO) {
+            try {
+                val productUrl = URL(
+                    "http://${resources.getString(R.string.ip_address)}" +
+                            "/DMS_Assignment4/locationservice/location"
+                )    //url of rest service
+
+                (productUrl.openConnection() as HttpURLConnection).run {
+                    readTimeout = 3000 // 3000ms
+                    connectTimeout = 3000 // 3000ms
+                    requestMethod = "GET"
+
+                    if (responseCode == HttpURLConnection.HTTP_OK) {
+                        val br = BufferedReader(InputStreamReader(inputStream))
+                        val gson = Gson()
+                        val locationType = object :
+                            TypeToken<ArrayList<com.example.dms_assignment4mobileclient.Location>>() {}.type
+                        val locations =
+                            gson.fromJson<ArrayList<com.example.dms_assignment4mobileclient.Location>>(
+                                br,
+                                locationType
+                            )
+                        liveLocations = locations;
+                        br.close()
+                        Log.println(
+                            Log.INFO,
+                            "REST",
+                            "SUCCESS GET ALL LOCATIONS ${liveLocations.toString()}"
+                        )
+                    } else
+                        Log.println(Log.INFO, "REST", "FAIL ALL LOCATIONS")
+                }
+            } catch (e: MalformedURLException) {
+                Log.e("REST", "Malformed URL: $e")
+                e.printStackTrace()
+            } catch (e: IOException) {
+                Log.e("REST", "IOException: $e")
+                e.printStackTrace()
+            }
+        }
+    }
+
+    private fun updateLocations() {
+        lifecycleScope.launch(Dispatchers.IO) {
+            try {
+                val productUrl = URL(
+                    "http://${resources.getString(R.string.ip_address)}" +
+                            "/DMS_Assignment4/locationservice/location/$userName/${userLatLng.latitude}/${userLatLng.longitude}/$safe/$help"
+                )    //url of rest service
+
+                (productUrl.openConnection() as HttpURLConnection).run {
+                    readTimeout = 3000 // 3000ms
+                    connectTimeout = 3000 // 3000ms
+                    requestMethod = "PUT"
+                    setRequestProperty("Content-Type", "text/plain")
+
+                    if (responseCode == HttpURLConnection.HTTP_NO_CONTENT) {
+                        Log.println(
+                            Log.INFO,
+                            "REST",
+                            "SUCCESS UPDATE LOCATION: $userName (${userLatLng.latitude}) (${userLatLng.longitude}"
+                        )
+                    } else {
+                        Log.println(Log.INFO, "REST", "FAIL UPDATE LOCATION")
+                    }
+                }
+            } catch (e: MalformedURLException) {
+                Log.e("REST", "Malformed URL: $e")
+                e.printStackTrace()
+            } catch (e: IOException) {
+                Log.e("REST", "IOException: $e")
+                e.printStackTrace()
             }
         }
     }
