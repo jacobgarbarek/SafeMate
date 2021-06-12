@@ -23,6 +23,7 @@ import com.google.android.gms.maps.GoogleMap.OnMyLocationClickListener
 import com.google.android.gms.maps.OnMapReadyCallback
 import com.google.android.gms.maps.SupportMapFragment
 import com.google.android.gms.maps.model.LatLng
+import com.google.android.gms.maps.model.MarkerOptions
 import com.google.android.gms.tasks.Task
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
@@ -224,7 +225,7 @@ class MapsActivity : AppCompatActivity(), OnMyLocationButtonClickListener,
                             setRequestProperty("Content-Type", "text/plain")
 
                             if(responseCode == HttpURLConnection.HTTP_NO_CONTENT) {
-                                Log.println(Log.INFO, "REST", "SUCCESS UPDATE LOCATION")
+                                Log.println(Log.INFO, "REST", "SUCCESS UPDATE LOCATION: $userName (${userLatLng.latitude}) (${userLatLng.longitude}")
                             }else {
                                 Log.println(Log.INFO, "REST", "FAIL UPDATE LOCATION")
                             }
@@ -275,6 +276,19 @@ class MapsActivity : AppCompatActivity(), OnMyLocationButtonClickListener,
                 }
             } else {
                 Log.println(Log.ERROR, "LOCATION", "Receiving locations but maps not yet available")
+            }
+
+            mMap.clear()
+
+            for(location in liveLocations){
+                if(location.username != userName) {
+                    var latLng = LatLng(location.latitude, location.longitude)
+                    mMap.addMarker(
+                        MarkerOptions()
+                            .position(latLng)
+                            .title(location.username)
+                    )
+                }
             }
         }
     }
