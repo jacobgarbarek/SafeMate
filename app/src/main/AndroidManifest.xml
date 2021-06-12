@@ -17,8 +17,7 @@
         android:theme="@style/Theme.DMS_Assignment4MobileClient"
         android:usesCleartextTraffic="true">
         <activity
-            android:name=".LoginActivity"
-            android:label="Login">
+            android:name=".LoginActivity">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
 
@@ -26,8 +25,7 @@
             </intent-filter>
         </activity>
         <activity
-            android:name=".MapsActivity"
-            android:label="@string/title_activity_maps">
+            android:name=".MapsActivity">
         </activity>
         <!--
              The API key for Google Maps-based APIs is defined as a string resource.
