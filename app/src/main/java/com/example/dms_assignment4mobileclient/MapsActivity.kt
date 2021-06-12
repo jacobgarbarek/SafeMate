@@ -2,12 +2,14 @@ package com.example.dms_assignment4mobileclient
 
 import android.Manifest
 import android.app.AlertDialog
+import android.content.Context
 import android.content.pm.PackageManager
+import android.graphics.Bitmap
+import android.graphics.Canvas
 import android.location.Location
 import android.os.Bundle
 import android.os.Looper
 import android.util.Log
-import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
@@ -22,9 +24,10 @@ import com.google.android.gms.maps.GoogleMap.OnMyLocationButtonClickListener
 import com.google.android.gms.maps.GoogleMap.OnMyLocationClickListener
 import com.google.android.gms.maps.OnMapReadyCallback
 import com.google.android.gms.maps.SupportMapFragment
+import com.google.android.gms.maps.model.BitmapDescriptor
+import com.google.android.gms.maps.model.BitmapDescriptorFactory
 import com.google.android.gms.maps.model.LatLng
 import com.google.android.gms.maps.model.MarkerOptions
-import com.google.android.gms.tasks.Task
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
 import kotlinx.coroutines.Dispatchers
@@ -35,6 +38,7 @@ import java.io.InputStreamReader
 import java.net.HttpURLConnection
 import java.net.MalformedURLException
 import java.net.URL
+
 
 class MapsActivity : AppCompatActivity(), OnMyLocationButtonClickListener,
     OnMyLocationClickListener, OnMapReadyCallback, OnRequestPermissionsResultCallback {
@@ -287,10 +291,22 @@ class MapsActivity : AppCompatActivity(), OnMyLocationButtonClickListener,
                         MarkerOptions()
                             .position(latLng)
                             .title(location.username)
+                            .icon(generateBitmapDescriptorFromRes(applicationContext, R.drawable.ic_baseline_person_pin_24))
                     )
                 }
             }
         }
+    }
+
+    private fun generateBitmapDescriptorFromRes(context: Context, resId: Int): BitmapDescriptor {
+        val drawable = ContextCompat.getDrawable(context, resId)
+        drawable?.setBounds(0,0,drawable.intrinsicWidth, drawable.intrinsicHeight)
+        val bitmap = drawable?.let { Bitmap.createBitmap(it.intrinsicWidth,drawable.intrinsicHeight,Bitmap.Config.ARGB_8888) }
+        val canvas = bitmap?.let { Canvas(it) }
+        if (canvas != null) {
+            drawable?.draw(canvas)
+        }
+        return BitmapDescriptorFactory.fromBitmap(bitmap)
     }
 
     companion object {
