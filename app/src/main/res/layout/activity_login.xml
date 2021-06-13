@@ -19,18 +19,11 @@
             android:layout_width="match_parent"
             android:layout_height="175dp"
             android:src="@drawable/ic_baseline_person_pin_24"/>
-
-
         <EditText
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:hint="Username"
             android:id="@+id/username_input"/>
-        <EditText
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:hint="Password"
-            android:id="@+id/password_input"/>
         <Button
             android:layout_width="match_parent"
             android:layout_height="match_parent"
