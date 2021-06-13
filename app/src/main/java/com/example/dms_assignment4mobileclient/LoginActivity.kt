@@ -23,7 +23,7 @@ class LoginActivity : AppCompatActivity() {
             val intent = Intent(this, MapsActivity::class.java)
             intent.putExtra("username", userName)
             startActivity(intent)
-            finish()
+            finish()        //cannot go back to login screen
         }
     }
 }

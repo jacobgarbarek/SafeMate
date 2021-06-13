@@ -6,6 +6,7 @@ import android.content.Context
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.graphics.Canvas
+import android.graphics.Color
 import android.location.Location
 import android.os.Bundle
 import android.os.Looper
@@ -45,19 +46,19 @@ import java.net.URL
 class MapsActivity : AppCompatActivity(), OnMyLocationButtonClickListener,
     OnMyLocationClickListener, OnMapReadyCallback, OnRequestPermissionsResultCallback {
 
-    private var liveLocations = ArrayList<com.example.dms_assignment4mobileclient.Location>()
-    private lateinit var fusedLocationClient: FusedLocationProviderClient
+    private var liveLocations = ArrayList<com.example.dms_assignment4mobileclient.Location>()       //live locations of other users
+    private lateinit var fusedLocationClient: FusedLocationProviderClient                           //provides location information
     private lateinit var mMap: GoogleMap
     private lateinit var binding: ActivityMapsBinding
     private lateinit var locationRequest: LocationRequest
-    private var permissionDenied = false
-    private lateinit var userLatLng: LatLng
+    private var permissionDenied = false                                                            //location permission
+    private lateinit var userLatLng: LatLng                                                         //user location co-ordinates
     private var locationCallback = LocationCallBackHandler()
     private lateinit var userName: String
     private lateinit var safeButton : Button
     private lateinit var helpButton : Button
-    private var safeFlags = HashMap<String, Boolean>()
-    private var helpFlags = HashMap<String, Boolean>()
+    private var safeFlags = HashMap<String, Boolean>()                                              //maintains flags of all connected users safety status
+    private var helpFlags = HashMap<String, Boolean>()                                              //maintains flags of all connected users help status
     private var safe = true
     private var help = false
 
@@ -82,58 +83,68 @@ class MapsActivity : AppCompatActivity(), OnMyLocationButtonClickListener,
         }
 
         val intent = intent
-        userName = intent.getStringExtra("username").toString()
+        userName = intent.getStringExtra("username").toString()                               //username from login activity
 
-        Snackbar.make(findViewById(R.id.maps_view), "Welcome back $userName!", Snackbar.LENGTH_LONG).show()
+        val sb = Snackbar.make(findViewById(R.id.maps_view), "Welcome back $userName!", Snackbar.LENGTH_LONG)
+        sb.setActionTextColor(Color.WHITE)
+        val sbView = sb.view
+        sbView.setBackgroundColor(ContextCompat.getColor(applicationContext, R.color.royal_blue))
+        sb.show()
 
         safeButton = findViewById(R.id.safe_button)
         helpButton = findViewById(R.id.help_button)
 
         safeButton.setOnClickListener {
-            if(safe)
-                Snackbar.make(findViewById(R.id.maps_view), "Message has already been sent.", Snackbar.LENGTH_SHORT).show()
-            else{
+            if(safe) {
+                messageAlreadySentSB()
+            }else{
                 safe = true
                 if(help)
                     help = false
-                updateLocations()
-                Snackbar.make(findViewById(R.id.maps_view), "Message sent.", Snackbar.LENGTH_SHORT).show()
+                updateLocations()       //passes safety message to server
+                messageSentSB()
             }
         }
 
         helpButton.setOnClickListener {
             if(help)
-                Snackbar.make(findViewById(R.id.maps_view), "Message has already been sent.", Snackbar.LENGTH_SHORT).show()
+                messageAlreadySentSB()
             else{
                 help = true
                 if(safe)
                     safe = false
-                updateLocations()
-                Snackbar.make(findViewById(R.id.maps_view), "Message sent.", Snackbar.LENGTH_SHORT).show()
+                updateLocations()       //passes help message to server
+                messageSentSB()
             }
         }
     }
 
+    private fun messageSentSB() {
+        val sb = Snackbar.make(findViewById(R.id.maps_view), "Message sent.", Snackbar.LENGTH_SHORT)
+        sb.setActionTextColor(Color.WHITE)
+        val sbView = sb.view
+        sbView.setBackgroundColor(ContextCompat.getColor(applicationContext, R.color.royal_blue))
+        sb.show()
+    }
 
-    /**
-     * Manipulates the map once available.
-     * This callback is triggered when the map is ready to be used.
-     * This is where we can add markers or lines, add listeners or move the camera. In this case,
-     * we just add a marker near Sydney, Australia.
-     * If Google Play services is not installed on the device, the user will be prompted to install
-     * it inside the SupportMapFragment. This method will only be triggered once the user has
-     * installed Google Play services and returned to the app.
-     */
+    private fun messageAlreadySentSB() {
+        val sb = Snackbar.make(findViewById(R.id.maps_view),"Message has already been sent.", Snackbar.LENGTH_SHORT)
+        sb.setActionTextColor(Color.WHITE)
+        val sbView = sb.view
+        sbView.setBackgroundColor(ContextCompat.getColor(applicationContext, R.color.royal_blue))
+        sb.show()
+    }
+
     override fun onMapReady(googleMap: GoogleMap) {
         mMap = googleMap ?: return
         googleMap.setOnMyLocationButtonClickListener(this)
         googleMap.setOnMyLocationClickListener(this)
-        enableMyLocation()
+        enableMyLocation()  //permission requests
     }
 
     private fun enableMyLocation() {
         if (!::mMap.isInitialized) return
-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION)
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION)   //permission granted
             == PackageManager.PERMISSION_GRANTED) {
             mMap.isMyLocationEnabled = true
 
@@ -143,7 +154,7 @@ class MapsActivity : AppCompatActivity(), OnMyLocationButtonClickListener,
                     mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(latLng, 14.9f))
                 }
 
-            fusedLocationClient.requestLocationUpdates(locationRequest, locationCallback, Looper.getMainLooper())
+            fusedLocationClient.requestLocationUpdates(locationRequest, locationCallback, Looper.getMainLooper())       //location update listener
         } else {
             // Permission to access the location is missing. Show rationale and request permission
             requestPermission(
@@ -180,7 +191,6 @@ class MapsActivity : AppCompatActivity(), OnMyLocationButtonClickListener,
     }
 
     override fun onMyLocationButtonClick(): Boolean {
-        Toast.makeText(this, "MyLocation button clicked", Toast.LENGTH_SHORT).show()
         // Return false so that we don't consume the event and the default behavior still occurs
         // (the camera animates to the user's current position).
         return false
@@ -238,7 +248,7 @@ class MapsActivity : AppCompatActivity(), OnMyLocationButtonClickListener,
     }
 
     inner class LocationCallBackHandler : LocationCallback() {
-        override fun onLocationResult(location: LocationResult) {
+        override fun onLocationResult(location: LocationResult) {       //called on location change
             super.onLocationResult(location)
             if(location == null){
                 Log.println(Log.ERROR, "LOCATION", "Null location result")
@@ -246,16 +256,16 @@ class MapsActivity : AppCompatActivity(), OnMyLocationButtonClickListener,
             }
             val mostRecentLocation = location.lastLocation
             if(mMap != null){
-                userLatLng = LatLng(mostRecentLocation.latitude, mostRecentLocation.longitude)
+                userLatLng = LatLng(mostRecentLocation.latitude, mostRecentLocation.longitude)      //updates user location
                 Log.println(Log.INFO, "LOCATION", "User at $userLatLng")
 
-                updateLocations()
-                getLocations()
+                updateLocations()                                                                   //sends new location to server
+                getLocations()                                                                      //receives connected users locations from server
             } else {
                 Log.println(Log.ERROR, "LOCATION", "Receiving locations but maps not yet available")
             }
 
-            mMap.clear()
+            mMap.clear()                                                                            //removes markers from map
 
             for(location in liveLocations){
                 if(location.username != userName) {
@@ -267,21 +277,29 @@ class MapsActivity : AppCompatActivity(), OnMyLocationButtonClickListener,
                             .icon(generateBitmapDescriptorFromRes(applicationContext, R.drawable.ic_baseline_person_pin_24))
                     )
 
-                    if(safeFlags.containsKey(location.username)){
-                        if(location.safe && safeFlags[location.username] == false){
-                            Snackbar.make(findViewById(R.id.maps_view), "$userName is safe!", Snackbar.LENGTH_INDEFINITE).setAction("Dismiss"){}.show()
+                    if(safeFlags.containsKey(location.username)){                                   //user already connected to system
+                        if(location.safe && safeFlags[location.username] == false){                 //newly updated status
+                            val sb = Snackbar.make(findViewById(R.id.maps_view), "$userName is safe!", Snackbar.LENGTH_INDEFINITE).setAction("Dismiss"){}
+                            sb.setActionTextColor(Color.WHITE)
+                            val sbView = sb.view
+                            sbView.setBackgroundColor(ContextCompat.getColor(applicationContext, R.color.green))
+                            sb.show()
                             safeFlags[location.username] = true
 
-                            if(helpFlags[location.username] == true)
+                            if(helpFlags[location.username] == true)                                //user no longer requires help
                                 helpFlags[location.username] = false
-                        }else if(location.help && helpFlags[location.username] == false){
-                            Snackbar.make(findViewById(R.id.maps_view), "$userName needs help!", Snackbar.LENGTH_INDEFINITE).setAction("Dismiss"){}.show()
+                        }else if(location.help && helpFlags[location.username] == false){           //newly updated status
+                            val sb = Snackbar.make(findViewById(R.id.maps_view), "$userName needs help!", Snackbar.LENGTH_INDEFINITE).setAction("Dismiss"){}
+                            sb.setActionTextColor(Color.WHITE)
+                            val sbView = sb.view
+                            sbView.setBackgroundColor(ContextCompat.getColor(applicationContext, R.color.red))
+                            sb.show()
                             helpFlags[location.username] = true
 
-                            if(safeFlags[location.username] == true)
+                            if(safeFlags[location.username] == true)                                //user is no longer safe
                                 safeFlags[location.username] = false
                         }
-                    }else{
+                    }else{                                                                          //new user connected to server
                         safeFlags[location.username] = location.safe
                         helpFlags[location.username] = location.help
                     }
@@ -296,7 +314,7 @@ class MapsActivity : AppCompatActivity(), OnMyLocationButtonClickListener,
                 val productUrl = URL(
                     "http://${resources.getString(R.string.ip_address)}" +
                             "/DMS_Assignment4/locationservice/location"
-                )    //url of rest service
+                )    //url of GET all connect user locations rest service
 
                 (productUrl.openConnection() as HttpURLConnection).run {
                     readTimeout = 3000 // 3000ms
@@ -313,7 +331,7 @@ class MapsActivity : AppCompatActivity(), OnMyLocationButtonClickListener,
                                 br,
                                 locationType
                             )
-                        liveLocations = locations;
+                        liveLocations = locations;                                                  //updates locations with newly received from server
                         br.close()
                         Log.println(
                             Log.INFO,
@@ -339,7 +357,7 @@ class MapsActivity : AppCompatActivity(), OnMyLocationButtonClickListener,
                 val productUrl = URL(
                     "http://${resources.getString(R.string.ip_address)}" +
                             "/DMS_Assignment4/locationservice/location/$userName/${userLatLng.latitude}/${userLatLng.longitude}/$safe/$help"
-                )    //url of rest service
+                )    //url of update location rest service
 
                 (productUrl.openConnection() as HttpURLConnection).run {
                     readTimeout = 3000 // 3000ms
@@ -367,7 +385,7 @@ class MapsActivity : AppCompatActivity(), OnMyLocationButtonClickListener,
         }
     }
 
-    private fun generateBitmapDescriptorFromRes(context: Context, resId: Int): BitmapDescriptor {
+    private fun generateBitmapDescriptorFromRes(context: Context, resId: Int): BitmapDescriptor {       //helper method to generate custom marker images
         val drawable = ContextCompat.getDrawable(context, resId)
         drawable?.setBounds(0,0,drawable.intrinsicWidth*2, drawable.intrinsicHeight*2)
         val bitmap = drawable?.let { Bitmap.createBitmap(it.intrinsicWidth*2,drawable.intrinsicHeight*2,Bitmap.Config.ARGB_8888) }
