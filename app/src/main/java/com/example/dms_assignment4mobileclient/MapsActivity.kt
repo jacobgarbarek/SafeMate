@@ -1,8 +1,10 @@
 package com.example.dms_assignment4mobileclient
 
 import android.Manifest
+import android.annotation.SuppressLint
 import android.app.AlertDialog
 import android.content.Context
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.graphics.Canvas
@@ -51,7 +53,6 @@ class MapsActivity : AppCompatActivity(), OnMyLocationButtonClickListener,
     private lateinit var mMap: GoogleMap
     private lateinit var binding: ActivityMapsBinding
     private lateinit var locationRequest: LocationRequest
-    private var permissionDenied = false                                                            //location permission
     private lateinit var userLatLng: LatLng                                                         //user location co-ordinates
     private var locationCallback = LocationCallBackHandler()
     private lateinit var userName: String
@@ -61,7 +62,6 @@ class MapsActivity : AppCompatActivity(), OnMyLocationButtonClickListener,
     private var helpFlags = HashMap<String, Boolean>()                                              //maintains flags of all connected users help status
     private var safe = true
     private var help = false
-
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -85,50 +85,36 @@ class MapsActivity : AppCompatActivity(), OnMyLocationButtonClickListener,
         val intent = intent
         userName = intent.getStringExtra("username").toString()                               //username from login activity
 
-        val sb = Snackbar.make(findViewById(R.id.maps_view), "Welcome back $userName!", Snackbar.LENGTH_LONG)
-        sb.setActionTextColor(Color.WHITE)
-        val sbView = sb.view
-        sbView.setBackgroundColor(ContextCompat.getColor(applicationContext, R.color.royal_blue))
-        sb.show()
-
         safeButton = findViewById(R.id.safe_button)
         helpButton = findViewById(R.id.help_button)
 
         safeButton.setOnClickListener {
             if(safe) {
-                messageAlreadySentSB()
+                defaultSnackBar("Message already sent!")
             }else{
                 safe = true
                 if(help)
                     help = false
                 updateLocations()       //passes safety message to server
-                messageSentSB()
+                defaultSnackBar("Message sent!")
             }
         }
 
         helpButton.setOnClickListener {
             if(help)
-                messageAlreadySentSB()
+                defaultSnackBar("Message already sent!")
             else{
                 help = true
                 if(safe)
                     safe = false
                 updateLocations()       //passes help message to server
-                messageSentSB()
+                defaultSnackBar("Message sent!")
             }
         }
     }
 
-    private fun messageSentSB() {
-        val sb = Snackbar.make(findViewById(R.id.maps_view), "Message sent.", Snackbar.LENGTH_SHORT)
-        sb.setActionTextColor(Color.WHITE)
-        val sbView = sb.view
-        sbView.setBackgroundColor(ContextCompat.getColor(applicationContext, R.color.royal_blue))
-        sb.show()
-    }
-
-    private fun messageAlreadySentSB() {
-        val sb = Snackbar.make(findViewById(R.id.maps_view),"Message has already been sent.", Snackbar.LENGTH_SHORT)
+    private fun defaultSnackBar(message: String) {
+        val sb = Snackbar.make(findViewById(R.id.maps_view), message, Snackbar.LENGTH_SHORT)
         sb.setActionTextColor(Color.WHITE)
         val sbView = sb.view
         sbView.setBackgroundColor(ContextCompat.getColor(applicationContext, R.color.royal_blue))
@@ -136,58 +122,99 @@ class MapsActivity : AppCompatActivity(), OnMyLocationButtonClickListener,
     }
 
     override fun onMapReady(googleMap: GoogleMap) {
-        mMap = googleMap ?: return
+        mMap = googleMap
         googleMap.setOnMyLocationButtonClickListener(this)
         googleMap.setOnMyLocationClickListener(this)
-        enableMyLocation()  //permission requests
+        requestPermission()  //permission requests
     }
 
-    private fun enableMyLocation() {
-        if (!::mMap.isInitialized) return
-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION)   //permission granted
-            == PackageManager.PERMISSION_GRANTED) {
-            mMap.isMyLocationEnabled = true
-
-            fusedLocationClient.lastLocation                                            //positions camera to current location of user
-                .addOnSuccessListener { location : Location? ->
-                    val latLng = location?.let { LatLng(it.latitude,it.longitude) }
-                    mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(latLng, 14.9f))
-                }
-
-            fusedLocationClient.requestLocationUpdates(locationRequest, locationCallback, Looper.getMainLooper())       //location update listener
-        } else {
-            // Permission to access the location is missing. Show rationale and request permission
-            requestPermission(
-                this, LOCATION_PERMISSION_REQUEST_CODE,
+    private fun requestPermission(){
+        when{
+            ContextCompat.checkSelfPermission(
+                this,
                 Manifest.permission.ACCESS_FINE_LOCATION
-            )
+            ) == PackageManager.PERMISSION_GRANTED -> {
+                //permission is granted
+                locationPermissionGrantedAction()
+            }
+            ActivityCompat.shouldShowRequestPermissionRationale(
+                this,
+                Manifest.permission.ACCESS_FINE_LOCATION
+            ) -> {
+                //Additional rational should be displayed
+                locationRequestDialog()
+            }
+            else -> {
+                //Permission has not been asked yet
+                ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.ACCESS_FINE_LOCATION), LOCATION_PERMISSION_REQUEST_CODE)
+            }
         }
     }
 
-
-    private fun requestPermission(activity: MapsActivity, requestId: Int, permission: String) {
-        if (ActivityCompat.shouldShowRequestPermissionRationale(activity, permission)) {
-            // Display a dialog with rationale.
-            AlertDialog.Builder(this)
-                .setTitle("Permission Request")
-                .setMessage("Need access to GPS")
-                .setPositiveButton("Allow"){dialog, which ->
-                    ActivityCompat.requestPermissions(
-                        activity!!,
-                        arrayOf(Manifest.permission.ACCESS_FINE_LOCATION),
-                        requestId
-                    )
+    override fun onRequestPermissionsResult(requestCode: Int,
+                                            permissions: Array<String>, grantResults: IntArray) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        when (requestCode) {
+            LOCATION_PERMISSION_REQUEST_CODE-> {
+                // If request is cancelled, the result arrays are empty.
+                if ((grantResults.isNotEmpty() &&
+                            grantResults[0] == PackageManager.PERMISSION_GRANTED)) {
+                    // Permission is granted.
+                    locationPermissionGrantedAction()
+                } else {
+                    Log.i("Permission:", "Denied")
+                    locationRequestDialog()
                 }
-                .create()
-                .show()
-        } else {
-            // Location permission has not been granted yet, request it.
-            ActivityCompat.requestPermissions(
-                activity,
-                arrayOf(permission),
-                requestId
-            )
+                return
+            }
+            else -> {
+                // Ignore all other requests.
+            }
         }
+    }
+
+    private fun locationRequestDialog() {
+        AlertDialog.Builder(this)
+            .setTitle("Permission Request")
+            .setMessage("GPS is required to use this application.")
+            .setPositiveButton("Allow") { _, _ ->
+                ActivityCompat.requestPermissions(
+                    this,
+                    arrayOf(Manifest.permission.ACCESS_FINE_LOCATION),
+                    LOCATION_PERMISSION_REQUEST_CODE
+                )
+            }
+            .setNegativeButton("Cancel") { dialog, _ ->
+                dialog.dismiss()
+                val intent = Intent(this, LoginActivity::class.java)
+                startActivity(intent)
+                finish()
+            }
+            .create()
+            .show()
+    }
+
+    @SuppressLint("MissingPermission")                                                          //method only ever called after permission has been checked
+    private fun locationPermissionGrantedAction() {
+        val sb = Snackbar.make(findViewById(R.id.maps_view), "Welcome back $userName!", Snackbar.LENGTH_LONG)
+        sb.setActionTextColor(Color.WHITE)
+        val sbView = sb.view
+        sbView.setBackgroundColor(ContextCompat.getColor(applicationContext, R.color.royal_blue))
+        sb.show()
+
+        mMap.isMyLocationEnabled = true
+
+        fusedLocationClient.lastLocation                                            //positions camera to current location of user
+            .addOnSuccessListener { location: Location? ->
+                val latLng = location?.let { LatLng(it.latitude, it.longitude) }
+                mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(latLng, 14.9f))
+            }
+
+        fusedLocationClient.requestLocationUpdates(
+            locationRequest,
+            locationCallback,
+            Looper.getMainLooper()
+        )       //location update listener
     }
 
     override fun onMyLocationButtonClick(): Boolean {
@@ -200,108 +227,53 @@ class MapsActivity : AppCompatActivity(), OnMyLocationButtonClickListener,
         Toast.makeText(this, "Current location:\n$location", Toast.LENGTH_LONG).show()
     }
 
-    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<String>, grantResults: IntArray) {
-        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
-        if (requestCode != LOCATION_PERMISSION_REQUEST_CODE) {
-            return
-        }
-        if (isPermissionGranted(permissions, grantResults, Manifest.permission.ACCESS_FINE_LOCATION)) {
-            // Enable the my location layer if the permission has been granted.
-            enableMyLocation()
-        } else {
-            // Permission was denied. Display an error message
-            // Display the missing permission error dialog when the fragments resume
-            permissionDenied = true
-        }
-    }
-
-    private fun isPermissionGranted(
-        grantPermissions: Array<String>, grantResults: IntArray,
-        permission: String
-    ): Boolean {
-        for (i in grantPermissions.indices) {
-            if (permission == grantPermissions[i]) {
-                return grantResults[i] == PackageManager.PERMISSION_GRANTED
-            }
-        }
-        return false
-    }
-
-    override fun onResumeFragments() {
-        super.onResumeFragments()
-        if (permissionDenied) {
-            // Permission was not granted, display error dialog.
-            permissionDenied = false
-            AlertDialog.Builder(this)
-                .setTitle("Permission Request")
-                .setMessage("Need access to GPS")
-                .setPositiveButton("Allow"){dialog, which ->
-                    ActivityCompat.requestPermissions(
-                        this!!,
-                        arrayOf(Manifest.permission.ACCESS_FINE_LOCATION),
-                        LOCATION_PERMISSION_REQUEST_CODE
-                    )
-                }
-                .create()
-                .show()
-        }
-    }
-
     inner class LocationCallBackHandler : LocationCallback() {
         override fun onLocationResult(location: LocationResult) {       //called on location change
             super.onLocationResult(location)
-            if(location == null){
-                Log.println(Log.ERROR, "LOCATION", "Null location result")
-                return
-            }
             val mostRecentLocation = location.lastLocation
-            if(mMap != null){
-                userLatLng = LatLng(mostRecentLocation.latitude, mostRecentLocation.longitude)      //updates user location
-                Log.println(Log.INFO, "LOCATION", "User at $userLatLng")
+            userLatLng = LatLng(mostRecentLocation.latitude, mostRecentLocation.longitude)      //updates user location
+            Log.println(Log.INFO, "LOCATION", "User at $userLatLng")
 
-                updateLocations()                                                                   //sends new location to server
-                getLocations()                                                                      //receives connected users locations from server
-            } else {
-                Log.println(Log.ERROR, "LOCATION", "Receiving locations but maps not yet available")
-            }
+            updateLocations()                                                                   //sends new location to server
+            getLocations()                                                                      //receives connected users locations from server
 
             mMap.clear()                                                                            //removes markers from map
 
-            for(location in liveLocations){
-                if(location.username != userName) {
-                    var latLng = LatLng(location.latitude, location.longitude)
+            for(liveLocation in liveLocations){
+                if(liveLocation.username != userName) {
+                    val latLng = LatLng(liveLocation.latitude, liveLocation.longitude)
                     mMap.addMarker(
                         MarkerOptions()
                             .position(latLng)
-                            .title(location.username)
+                            .title(liveLocation.username)
                             .icon(generateBitmapDescriptorFromRes(applicationContext, R.drawable.ic_baseline_person_pin_24))
                     )
 
-                    if(safeFlags.containsKey(location.username)){                                   //user already connected to system
-                        if(location.safe && safeFlags[location.username] == false){                 //newly updated status
+                    if(safeFlags.containsKey(liveLocation.username)){                                   //user already connected to system
+                        if(liveLocation.safe && safeFlags[liveLocation.username] == false){                 //newly updated status
                             val sb = Snackbar.make(findViewById(R.id.maps_view), "$userName is safe!", Snackbar.LENGTH_INDEFINITE).setAction("Dismiss"){}
                             sb.setActionTextColor(Color.WHITE)
                             val sbView = sb.view
                             sbView.setBackgroundColor(ContextCompat.getColor(applicationContext, R.color.green))
                             sb.show()
-                            safeFlags[location.username] = true
+                            safeFlags[liveLocation.username] = true
 
-                            if(helpFlags[location.username] == true)                                //user no longer requires help
-                                helpFlags[location.username] = false
-                        }else if(location.help && helpFlags[location.username] == false){           //newly updated status
+                            if(helpFlags[liveLocation.username] == true)                                //user no longer requires help
+                                helpFlags[liveLocation.username] = false
+                        }else if(liveLocation.help && helpFlags[liveLocation.username] == false){           //newly updated status
                             val sb = Snackbar.make(findViewById(R.id.maps_view), "$userName needs help!", Snackbar.LENGTH_INDEFINITE).setAction("Dismiss"){}
                             sb.setActionTextColor(Color.WHITE)
                             val sbView = sb.view
                             sbView.setBackgroundColor(ContextCompat.getColor(applicationContext, R.color.red))
                             sb.show()
-                            helpFlags[location.username] = true
+                            helpFlags[liveLocation.username] = true
 
-                            if(safeFlags[location.username] == true)                                //user is no longer safe
-                                safeFlags[location.username] = false
+                            if(safeFlags[liveLocation.username] == true)                                //user is no longer safe
+                                safeFlags[liveLocation.username] = false
                         }
                     }else{                                                                          //new user connected to server
-                        safeFlags[location.username] = location.safe
-                        helpFlags[location.username] = location.help
+                        safeFlags[liveLocation.username] = liveLocation.safe
+                        helpFlags[liveLocation.username] = liveLocation.help
                     }
                 }
             }
@@ -331,12 +303,12 @@ class MapsActivity : AppCompatActivity(), OnMyLocationButtonClickListener,
                                 br,
                                 locationType
                             )
-                        liveLocations = locations;                                                  //updates locations with newly received from server
+                        liveLocations = locations                                                  //updates locations with newly received from server
                         br.close()
                         Log.println(
                             Log.INFO,
                             "REST",
-                            "SUCCESS GET ALL LOCATIONS ${liveLocations.toString()}"
+                            "SUCCESS GET ALL LOCATIONS $liveLocations"
                         )
                     } else
                         Log.println(Log.INFO, "REST", "FAIL ALL LOCATIONS")
@@ -391,12 +363,12 @@ class MapsActivity : AppCompatActivity(), OnMyLocationButtonClickListener,
         val bitmap = drawable?.let { Bitmap.createBitmap(it.intrinsicWidth*2,drawable.intrinsicHeight*2,Bitmap.Config.ARGB_8888) }
         val canvas = bitmap?.let { Canvas(it) }
         if (canvas != null) {
-            drawable?.draw(canvas)
+            drawable.draw(canvas)
         }
         return BitmapDescriptorFactory.fromBitmap(bitmap)
     }
 
     companion object {
-        private const val LOCATION_PERMISSION_REQUEST_CODE = 1;
+        private const val LOCATION_PERMISSION_REQUEST_CODE = 1
     }
 }
